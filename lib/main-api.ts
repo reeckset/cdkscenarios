@@ -44,7 +44,7 @@ export class MainApi extends cdk.Construct {
       )
     );
 
-    api.root.addResource("{folder}").addMethod("GET", s3Integration, {
+    api.root.addResource("{folder}").addMethod("POST", s3Integration, {
       methodResponses: [
         {
           statusCode: "200"
