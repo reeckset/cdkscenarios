@@ -12,7 +12,7 @@ export class CdkDemoProjectStack extends cdk.Stack {
   constructor(scope: cdk.App, id: string, props: {}) {
     super(scope, id, props);
 
-    const usersTable = new dynamodb.Table(this, 'UsersTable', {
+    const usersTable = new dynamodb.Table(this, 'UsersInfoTable', {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       sortKey: { name: 'name', type: dynamodb.AttributeType.STRING }
     });
@@ -27,7 +27,7 @@ export class CdkDemoProjectStack extends cdk.Stack {
       runtime: lambda.Runtime.NODEJS_12_X,
       code: lambda.Code.fromAsset(path.join(__dirname, 'lambda')),
       initialPolicy: [ new iam.PolicyStatement({
-        resources: ['*'],
+        resources: [usersTable.tableArn],
         actions: ['dynamoDB:*'],
       })],
       environment: {
