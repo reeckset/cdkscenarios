@@ -12,16 +12,24 @@ export class NotificationSystem extends cdk.Construct {
     constructor(scope: cdk.Construct, id: string) {
         super(scope, id);
     
-        const sendEmail = new lambda.Function(this, 'EmailNotificationLambda', {
+        const lambdaArguments = {
             runtime: lambda.Runtime.NODEJS_12_X,
-            handler: 'email-notification-sender.handler',
             code: lambda.Code.fromAsset(path.join(__dirname, 'lambda')),
+        }
+
+        const sendEmail = new lambda.Function(this, 'EmailNotificationLambda', {
+            ...lambdaArguments,
+            handler: 'email-notification-sender.handler',
         });
 
         const sendSMS = new lambda.Function(this, 'SMSNotificationLambda', {
-            runtime: lambda.Runtime.NODEJS_12_X,
+            ...lambdaArguments,
             handler: 'sms-notification-sender.handler',
-            code: lambda.Code.fromAsset(path.join(__dirname, 'lambda')),
+        });
+
+        const sendPushNotification = new lambda.Function(this, 'PushNotificationLambda', {
+            ...lambdaArguments,
+            handler: 'push-notification-sender.handler',
         });
 
         const sendEmailJob = new tasks.LambdaInvoke(this, 'SendEmailJob', {
@@ -35,9 +43,24 @@ export class NotificationSystem extends cdk.Construct {
             outputPath: '$.Payload',
         });
 
+        const sendPushNotifJob = new tasks.LambdaInvoke(this, 'Push Notification Job', {
+            lambdaFunction: sendPushNotification,
+            inputPath: '$.user.notificationToken',
+            outputPath: '$.Payload',
+        });
+
         const definition = sendEmailJob
             .next(new sfn.Choice(this, 'JobComplete?')
-                .when(sfn.Condition.stringEquals('$.status', 'FAILED'), sendSMSJob));
+                .when(sfn.Condition.stringEquals('$.status', 'FAILED'),
+                    sendSMSJob
+                    .next(
+                        new sfn.Choice(this, 'SMS Successful?')
+                        .when(sfn.Condition.stringEquals('$.status', 'FAILED'),
+                            sendPushNotifJob
+                        )
+                    )
+                )
+            );
 
         this.stateMachine = new sfn.StateMachine(this, 'StateMachine', {
             definition,
